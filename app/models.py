@@ -19,7 +19,6 @@ class Item(db.Model):
     quantity = db.Column(db.Integer)
     expiry_date = db.Column(db.Date)
     value = db.Column(db.Integer)
-    out = db.Column(db.Boolean)
     needs_cleaning = db.Column(db.Boolean)
     condition = db.Column(db.String(16))
     remarks = db.Column(db.String(128))
@@ -42,6 +41,17 @@ class Item(db.Model):
     def __repr__(self) -> str:
         return "<Item {} (id: {})>".format(self.name, self.id)
 
+    def to_dict(self, show: list = None) -> dict:
+        columns = (
+            list(filter(lambda x: x in show, self.__table__.columns.keys()))
+            if show is not None
+            else self.__table__.columns.keys()
+        )
+        ret_dict = dict()
+        for key in columns:
+            ret_dict[key] = getattr(self, key)
+        return ret_dict
+
 
 class Borrowing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -58,6 +68,17 @@ class Borrowing(db.Model):
         return "<Borrowing of {} by {} (id: {})>".format(
             self.borrowed_item, self.borrower, self.id
         )
+
+    def to_dict(self, show: list = None) -> dict:
+        columns = (
+            list(filter(lambda x: x in show, self.__table__.columns.keys()))
+            if show is not None
+            else self.__table__.columns.keys()
+        )
+        ret_dict = dict()
+        for key in columns:
+            ret_dict[key] = getattr(self, key)
+        return ret_dict
 
 
 class User(UserMixin, db.Model):
@@ -117,6 +138,7 @@ class User(UserMixin, db.Model):
             )
             db.session.add(b)
             db.session.commit()
+            return b
         else:
             raise ValueError("User can only borrow items")
 
@@ -129,6 +151,17 @@ class User(UserMixin, db.Model):
 
     def __repr__(self) -> str:
         return "<User {} (id: {})>".format(self.username, self.id)
+
+    def to_dict(self, show: list = None) -> dict:
+        columns = (
+            list(filter(lambda x: x in show, self.__table__.columns.keys()))
+            if show is not None
+            else self.__table__.columns.keys()
+        )
+        ret_dict = dict()
+        for key in columns:
+            ret_dict[key] = getattr(self, key)
+        return ret_dict
 
 
 @login.user_loader

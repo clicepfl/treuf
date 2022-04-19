@@ -4,6 +4,8 @@ from app import app, db
 from app.models import *
 from datetime import date
 
+import json
+
 
 class UserModelCase(unittest.TestCase):
     def setUp(self):
@@ -42,6 +44,27 @@ class UserModelCase(unittest.TestCase):
 
         b2 = u.borrow(i2, date.today(), date.today(), 1)
         self.assertEqual(u.get_borrwed_items().all(), [i2, i])
+
+    def test_json(self):
+        i = Item(
+            name="xbox360",
+            needs_cleaning=False,
+            unit="1m",
+            quantity=10,
+            condition="good",
+        )
+
+        db.session.add(i)
+        db.session.commit()
+
+        self.assertEqual(
+            json.dumps(i.to_dict()),
+            '{"id": 1, "name": "xbox360", "image": null, "description": null, "box_name": null, "location": null, "unit": "1m", "quantity": 10, "expiry_date": null, "value": null, "needs_cleaning": false, "condition": "good", "remarks": null}',
+        )
+        self.assertEqual(
+            json.dumps(i.to_dict(["name", "quantity"])),
+            '{"name": "xbox360", "quantity": 10}',
+        )
 
 
 if __name__ == "__main__":
