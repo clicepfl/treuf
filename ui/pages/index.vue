@@ -1,5 +1,7 @@
 <template>
-  <Tutorial/>
+<div>
+  Ceci est un test
+</div>
 </template>
 
 <script lang="ts">
