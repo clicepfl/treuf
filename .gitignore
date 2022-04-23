@@ -6,9 +6,6 @@ __pycache__/
 # Nodes modules
 node_modules/
 
-# Python cache
-__pycache__/
-
 # C extensions
 *.so
 
