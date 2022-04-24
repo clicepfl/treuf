@@ -1,34 +1,36 @@
 <template>
   <div class="space-y-4">
-    <div>
+    <!-- <div>
       <ValidationProvider rules="minmax:4,24|required" v-slot="{ errors }">
         <input v-model="username" type="text">
         <span>{{ errors[0] }}</span>
       </ValidationProvider>
     </div>
-    <div>
+    <div class="ring-2">
       <ValidationProvider rules="minmax:8,32|required" v-slot="{ errors }">
         <input v-model="password" type="text">
         <span>{{ errors[0] }}</span>
       </ValidationProvider>
-    </div>
+    </div> -->
   </div>
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
-import { ValidationProvider } from 'vee-validate'
 
-export default Vue.extend({
+export default {
   name: 'Login',
-  components: {
-    ValidationProvider
+  components: {},
+  data(): {
+    username: string,
+    password: string,
+    success: boolean
+  } {
+    return {
+      username: '',
+      password: '',
+      success: false
+    }
   },
-  data: () => ({
-    username: '',
-    password: '',
-    success: false,
-  }),
   methods: {
     // Submit the form input fields for login
     async onSubmit(): Promise<void> {
@@ -48,5 +50,5 @@ export default Vue.extend({
         )
     },
   },
-})
+}
 </script>

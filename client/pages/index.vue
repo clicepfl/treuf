@@ -10,13 +10,12 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
 import Login from '../components/Login.vue'
 
-export default Vue.extend({
+export default {
   name: 'IndexPage',
   components: {
     Login
   },
-})
+}
 </script>

@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <table class="table-auto w-full rounded-lg bg-blue-100">
+  <div class="flex place-content-center">
+    <table class="table-auto border border-black bg-blue-100">
       <thead>
         <tr class="hover:bg-blue-300">
           <th class="text-left pl-8 pr-4 p-3">
@@ -9,21 +9,37 @@
           <th class="text-left pl-4 pr-4 p-3">
             {{ headers[1] }}
           </th>
-          <th class="text-left pl-4 pr-8 p-3">
+          <th class="text-left pl-4 pr-4 p-3">
             {{ headers[2] }}
+          </th>
+          <th class="text-left pl-4 pr-4 p-3">
+            {{ headers[3] }}
+          </th>
+          <th class="text-left pl-4 pr-8 p-3">
+            {{ headers[4] }}
           </th>
         </tr>
       </thead>
-      <tbody class="overflow-y-scroll" style="height: 50vh;">
-        <tr v-for="(item, i) in items" :key="i" class="hover:bg-blue-300">
-          <td class="p-3 pl-8 pr-4 border-t border-black">
-            {{ item[0] }}
+      <tbody>
+        <tr
+          class="cursor-pointer hover:bg-blue-300"
+          v-for="[id, item] in items" :key="id"
+          @click="borrowItem(id)"
+        >
+          <td class="pl-8 pr-4 p-3 border-t border-black">
+            {{ item.name }}
           </td>
-          <td class="p-3 pl-4 pr-4 border-t border-black">
-            {{ item[1] }}
+          <td class="pl-4 pr-4 p-3 border-t border-black">
+            {{ quantities.get(id) }}
           </td>
-          <td class="p-3 pl-4 pr-8 border-t border-black">
-            {{ item[2] }}
+          <td class="pl-4 pr-4 p-3 border-t border-black">
+            {{ item.a }}
+          </td>
+          <td class="pl-4 pr-4 p-3 border-t border-black">
+            {{ item.b }}
+          </td>
+          <td class="pl-4 pr-8 p-3 border-t border-black">
+            {{ item.c }}
           </td>
         </tr>
       </tbody>
@@ -32,28 +48,64 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
 
-export default Vue.extend({
+interface Item {
+  id: number
+  name: string
+  quantity: number
+  a: string,
+  b: string,
+  c: string
+}
+
+export default {
   name: 'Inventory',
-  data: () => ({
-    headers: ['Nom', 'Quantité', "Date d'emprunt"],
-    items: [
-      ['balai', 'un texte plutôt assez long', 'hier'],
-      [4,5,6],
-      [7,8,9],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-      [10,11,12],
-    ]
-  })
-})
+  data(): {
+    headers: string[],
+    items: Map<number, Item>,
+    quantities: Map<number, number>
+    borrowedItems: Map<number, Item>
+    borrowedQuantities: Map<number, number>
+  } {
+    return {
+      headers: ['Nom', 'Quantité', 'A', 'B', 'C'],
+      items: new Map([
+        [0, { id: 0, name: 'un balai plutôt assez très long', quantity: 12, a: 'a', b: 'b', c: 'c' }],
+        [1, { id: 1, name: 'aspirateur', quantity: 2, a: 'a', b: 'b', c: 'c' }],
+        [2, { id: 2, name: 'marqueur', quantity: 47, a: 'a', b: 'b', c: 'c' }]
+      ]),
+      quantities: new Map([
+        [0, 12],
+        [1, 2],
+        [2, 47]
+      ]),
+      borrowedItems: new Map(),
+      borrowedQuantities: new Map([[0, 0], [1, 0], [2, 0]])
+    }
+  },
+  methods: {
+    borrowItem(id: number): void {
+      const item = this.items.get(id)
+      const quantity = this.quantities.get(id)
+      const borrowedQuantity = this.borrowedQuantities.get(id)
+      if (item === undefined || quantity === undefined || borrowedQuantity === undefined) {
+        return
+      }
+      console.log(item, quantity, borrowedQuantity)
+      this.quantities.set(id, quantity - 1)
+      if (quantity <= 1) {
+        this.items.delete(id)
+        this.quantities.delete(id)
+      }
+      this.borrowedItems.set(id, item)
+      this.borrowedQuantities.set(id, borrowedQuantity + 1)
+    },
+    unborrowItem(id: number): void {
+
+    },
+    confirmBorrowing(): void {
+
+    }
+  }
+}
 </script>
