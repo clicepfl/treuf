@@ -8,14 +8,18 @@ Coming soon...
 
 Installer puis lancer le serveur de l'API Flask
 ```
-> cd api/
-> pip install -r requirements.txt
-> flask run
+cd api/
+pip install -r requirements.txt
+flask run
 ```
 
 Installer puis lancer les client et serveur NuxtJS
 ```
-> cd client/
-> npm install
-> npm run dev
+cd client/
+npm install
+npm run dev
 ```
+
+## Dépendances du client
+
+Nuxt 3 (beta), Tailwind CSS, VeeValidate
