@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <div>
+  <div class="mt-16 text-center">
+    <div class="mb-20">
       <Login/>
     </div>
     <div>

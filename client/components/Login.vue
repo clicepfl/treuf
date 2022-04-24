@@ -1,5 +1,7 @@
 <template>
   <div class="space-y-4">
+    <div>Nom d'utilisateur</div>
+    <div>Mot de passe</div>
     <!-- <div>
       <ValidationProvider rules="minmax:4,24|required" v-slot="{ errors }">
         <input v-model="username" type="text">
