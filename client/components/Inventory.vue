@@ -1,49 +1,97 @@
 <template>
-  <div class="flex place-content-center">
-    <table class="table-auto border border-black bg-blue-100">
-      <thead>
-        <tr class="hover:bg-blue-300">
-          <th class="text-left pl-8 pr-4 p-3">
-            {{ headers[0] }}
-          </th>
-          <th class="text-left pl-4 pr-4 p-3">
-            {{ headers[1] }}
-          </th>
-          <th class="text-left pl-4 pr-4 p-3">
-            {{ headers[2] }}
-          </th>
-          <th class="text-left pl-4 pr-4 p-3">
-            {{ headers[3] }}
-          </th>
-          <th class="text-left pl-4 pr-8 p-3">
-            {{ headers[4] }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          class="cursor-pointer hover:bg-blue-300"
-          v-for="[id, item] in items" :key="id"
-          @click="borrowItem(id)"
-        >
-          <td class="pl-8 pr-4 p-3 border-t border-black">
-            {{ item.name }}
-          </td>
-          <td class="pl-4 pr-4 p-3 border-t border-black">
-            {{ quantities.get(id) }}
-          </td>
-          <td class="pl-4 pr-4 p-3 border-t border-black">
-            {{ item.a }}
-          </td>
-          <td class="pl-4 pr-4 p-3 border-t border-black">
-            {{ item.b }}
-          </td>
-          <td class="pl-4 pr-8 p-3 border-t border-black">
-            {{ item.c }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="space-y-8">
+    <div v-show="borrowed">
+      <table class="table-fixed w-full shadow-md border border-black bg-blue-100">
+        <thead>
+          <tr class="hover:bg-blue-300">
+            <th class="text-left pl-8 pr-4 p-3">
+              {{ headers[0] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[1] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[2] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[3] }}
+            </th>
+            <th class="text-left pl-4 pr-8 p-3">
+              {{ headers[4] }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            class="cursor-pointer hover:bg-blue-300"
+            v-for="[id, item] in borrowedItems" :key="id"
+            @click="unborrowItem(id)"
+          >
+            <td class="pl-8 pr-4 p-3 border-t border-black">
+              {{ item.name }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ borrowedQuantities.get(id) }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ item.a }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ item.b }}
+            </td>
+            <td class="pl-4 pr-8 p-3 border-t border-black">
+              {{ item.c }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div v-show="available">
+      <table class="table-fixed w-full shadow-md border border-black bg-blue-100">
+        <thead>
+          <tr class="hover:bg-blue-300">
+            <th class="text-left pl-8 pr-4 p-3">
+              {{ headers[0] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[1] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[2] }}
+            </th>
+            <th class="text-left pl-4 pr-4 p-3">
+              {{ headers[3] }}
+            </th>
+            <th class="text-left pl-4 pr-8 p-3">
+              {{ headers[4] }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            class="cursor-pointer hover:bg-blue-300"
+            v-for="[id, item] in items" :key="id"
+            @click="borrowItem(id)"
+          >
+            <td class="pl-8 pr-4 p-3 border-t border-black">
+              {{ item.name }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ quantities.get(id) }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ item.a }}
+            </td>
+            <td class="pl-4 pr-4 p-3 border-t border-black">
+              {{ item.b }}
+            </td>
+            <td class="pl-4 pr-8 p-3 border-t border-black">
+              {{ item.c }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -81,6 +129,14 @@ export default {
       ]),
       borrowedItems: new Map(),
       borrowedQuantities: new Map([[0, 0], [1, 0], [2, 0]])
+    }
+  },
+  computed: {
+    available(): boolean {
+      return this.items.size > 0
+    },
+    borrowed(): boolean {
+      return this.borrowedItems.size > 0
     }
   },
   methods: {
