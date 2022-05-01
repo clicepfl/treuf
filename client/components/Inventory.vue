@@ -1,32 +1,32 @@
 <template>
   <div class="space-y-14">
-    <div class="mt-20 space-x-14 text-center">
+    <div class="space-x-14 text-center">
       <button
-        :class="available ? 'bg-blue-300' : 'bg-blue-200'"
-        class="px-4 py-2 rounded-lg border border-black hover:bg-blue-300"
+        :class="available ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'"
+        class="text-white font-medium px-4 py-2 rounded-md border"
         @click="showAvailable()"
       >
         Disponible
       </button>
       <button
-        :class="borrowed ? 'bg-blue-300' : 'bg-blue-200'"
-        class="px-4 py-2 rounded-lg border border-black hover:bg-blue-300"
+        :class="borrowed ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'"
+        class="text-white font-medium px-4 py-2 rounded-md border"
         @click="showBorrowed()"
       >
         Mon inventaire
       </button>
       <button
-        :class="unavailable ? 'bg-blue-300' : 'bg-blue-200'"
-        class="px-4 py-2 rounded-lg border border-black hover:bg-blue-300"
+        :class="unavailable ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'"
+        class="text-white font-medium px-4 py-2 rounded-md border"
         @click="showUnavailable()"
       >
         Emprunté
       </button>
     </div>
     <div v-show="available">
-      <table class="table-fixed w-full shadow-md border border-black bg-blue-100">
+      <table class="table-fixed w-full shadow-md bg-blue-600 text-white font-medium">
         <thead>
-          <tr class="hover:bg-blue-300">
+          <tr class="hover:bg-blue-500">
             <th class="text-left pl-8 pr-4 p-3">
               {{ headers[0] }}
             </th>
@@ -46,23 +46,23 @@
         </thead>
         <tbody>
           <tr
-            class="cursor-pointer hover:bg-blue-300"
+            class="cursor-pointer hover:bg-blue-500"
             v-for="[id, item] in items" :key="id"
             @click="borrowItem(id)"
           >
-            <td class="pl-8 pr-4 p-3 border-t border-black">
+            <td class="pl-8 pr-4 p-3 border-t border-white">
               {{ item.name }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ quantities.get(id) }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.a }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.b }}
             </td>
-            <td class="pl-4 pr-8 p-3 border-t border-black">
+            <td class="pl-4 pr-8 p-3 border-t border-white">
               {{ item.c }}
             </td>
           </tr>
@@ -70,9 +70,9 @@
       </table>
     </div>
     <div v-show="borrowed">
-      <table class="table-fixed w-full shadow-md border border-black bg-blue-100">
+      <table class="table-fixed w-full shadow-md bg-blue-600 text-white font-medium">
         <thead>
-          <tr class="hover:bg-blue-300">
+          <tr class="hover:bg-blue-500">
             <th class="text-left pl-8 pr-4 p-3">
               {{ headers[0] }}
             </th>
@@ -92,23 +92,23 @@
         </thead>
         <tbody>
           <tr
-            class="cursor-pointer hover:bg-blue-300"
+            class="cursor-pointer hover:bg-blue-500"
             v-for="[id, item] in borrowedItems" :key="id"
             @click="unborrowItem(id)"
           >
-            <td class="pl-8 pr-4 p-3 border-t border-black">
+            <td class="pl-8 pr-4 p-3 border-t border-white">
               {{ item.name }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ borrowedQuantities.get(id) }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.a }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.b }}
             </td>
-            <td class="pl-4 pr-8 p-3 border-t border-black">
+            <td class="pl-4 pr-8 p-3 border-t border-white">
               {{ item.c }}
             </td>
           </tr>
@@ -116,8 +116,8 @@
       </table>
     </div>
     <div v-show="unavailable">
-      <table class="table-fixed w-full shadow-md border border-black bg-blue-100">
-        <thead class="hover:bg-blue-300">
+      <table class="table-fixed w-full shadow-md bg-blue-600 text-white font-medium">
+        <thead class="hover:bg-blue-500">
           <tr>
             <th class="text-left pl-8 pr-4 p-3">
               {{ headers[0] }}
@@ -136,23 +136,23 @@
             </th>
           </tr>
         </thead>
-        <tbody class="hover:bg-blue-300">
+        <tbody class="hover:bg-blue-500">
           <tr
             v-for="[id, item] in unavailableItems" :key="id"
           >
-            <td class="pl-8 pr-4 p-3 border-t border-black">
+            <td class="pl-8 pr-4 p-3 border-t border-white">
               {{ item.name }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ unavailableQuantities.get(id) }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.a }}
             </td>
-            <td class="pl-4 pr-4 p-3 border-t border-black">
+            <td class="pl-4 pr-4 p-3 border-t border-white">
               {{ item.b }}
             </td>
-            <td class="pl-4 pr-8 p-3 border-t border-black">
+            <td class="pl-4 pr-8 p-3 border-t border-white">
               {{ item.c }}
             </td>
           </tr>
@@ -173,6 +173,10 @@ interface Item {
   c: string
 }
 
+/**
+ * This component should be split in smaller table subcomponents, which would
+ * communicate via events. Everything is contained here until the API is set.
+ */
 export default {
   name: 'Inventory',
   data(): {
@@ -240,7 +244,6 @@ export default {
      * @param id The item ID
      */
     unborrowItem(id: number): void {
-      console.log('heyheyhey')
       const borrowedItem = this.borrowedItems.get(id)
       const borrowedQuantity = this.borrowedQuantities.get(id)
       const quantity = this.quantities.get(id)
@@ -255,7 +258,7 @@ export default {
       if (!this.items.has(id)) {
         this.items.set(id, borrowedItem)
       }
-      this.items.set(id, quantity + 1)
+      this.quantities.set(id, quantity + 1)
     },
     /**
      * Moves the list of borrowed items to unavailable
