@@ -1,6 +1,7 @@
 import unittest
 
-from app import app, db
+from app import db
+from flask import current_app as app
 from app.models import *
 from datetime import date
 

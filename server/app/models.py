@@ -1,11 +1,10 @@
 from datetime import datetime, date
-from typing import Any
 
-from flask_login import UserMixin
 from sqlalchemy.orm import Query
 from werkzeug.security import check_password_hash, generate_password_hash
-
-from app import db, login
+from flask_login import UserMixin
+from flask import url_for
+from app import db
 
 
 class Item(db.Model):
@@ -152,18 +151,13 @@ class User(UserMixin, db.Model):
     def __repr__(self) -> str:
         return "<User {} (id: {})>".format(self.username, self.id)
 
-    def to_dict(self, show: list = None) -> dict:
-        columns = (
-            list(filter(lambda x: x in show, self.__table__.columns.keys()))
-            if show is not None
-            else self.__table__.columns.keys()
-        )
-        ret_dict = dict()
-        for key in columns:
-            ret_dict[key] = getattr(self, key)
-        return ret_dict
-
-
-@login.user_loader
-def load_user(id: int) -> User:
-    return User.query.get(int(id))
+    def to_dict(self) -> dict:
+        # TODO
+        data = {
+            "id": self.id,
+            "username": self.username,
+            "_links": {
+                "self": url_for("api.get_user", id=self.id),
+            },
+        }
+        return data
