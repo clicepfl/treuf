@@ -16,6 +16,6 @@
 
 <script lang="ts">
 export default {
-  name: 'PlusButton'
+  name: 'RoundButton'
 }
 </script>

@@ -3,21 +3,21 @@
     <div class="space-x-14 text-center">
       <button
         :class="available ? 'text-blue-600 bg-white outline outline-2 outline-blue-600' : 'text-white bg-blue-600 hover:bg-blue-500'"
-        class="font-medium px-4 py-2 rounded-md"
+        class="font-medium px-4 py-2 rounded-md w-40"
         @click="showAvailable()"
       >
         Disponible
       </button>
       <button
         :class="borrowed ? 'text-blue-600 bg-white outline outline-2 outline-blue-600' : 'text-white bg-blue-600 hover:bg-blue-500'"
-        class="font-medium px-4 py-2 rounded-md border"
+        class="font-medium px-4 py-2 rounded-md w-40"
         @click="showBorrowed()"
       >
         Mon inventaire
       </button>
       <button
         :class="unavailable ? 'text-blue-600 bg-white outline outline-2 outline-blue-600' : 'text-white bg-blue-600 hover:bg-blue-500'"
-        class="font-medium px-4 py-2 rounded-md border"
+        class="font-medium px-4 py-2 rounded-md w-40"
         @click="showUnavailable()"
       >
         Emprunté
@@ -27,6 +27,7 @@
       <table class="table-fixed w-full bg-blue-600 text-white font-medium">
         <thead>
           <tr>
+            <th class="bg-white w-16" />
             <th class="text-left pl-8 pr-4 py-3">
               {{ headers[0] }}
             </th>
@@ -39,7 +40,6 @@
             <th class="text-left pl-4 pr-8 py-3">
               {{ headers[3] }}
             </th>
-            <th class="bg-white w-20" />
           </tr>
         </thead>
         <tbody>
@@ -47,6 +47,11 @@
             class="hover:bg-white hover:text-blue-600"
             v-for="[id, item] in items" :key="id"
           >
+            <td class="text-left bg-white">
+              <RoundButton @click="borrowItem(id)">
+                +
+              </RoundButton>
+            </td>
             <td class="pl-8 pr-4 py-3 border-t border-white">
               {{ item.name }}
             </td>
@@ -59,11 +64,6 @@
             <td class="pl-4 pr-8 py-3 border-t border-white">
               {{ item.state }}
             </td>
-            <td class="text-right bg-white w-20">
-              <RoundButton @click="borrowItem(id)">
-                +
-              </RoundButton>
-            </td>
           </tr>
         </tbody>
       </table>
@@ -72,19 +72,23 @@
       <table class="table-fixed w-full bg-blue-600 text-white font-medium">
         <thead>
           <tr>
+            <th class="bg-white w-16" />
             <th class="text-left pl-8 pr-4 py-3">
-              {{ headers[0] }}
+              {{ borrowedHeaders[0] }}
             </th>
             <th class="text-left px-4 py-3">
-              {{ headers[1] }}
+              {{ borrowedHeaders[1] }}
             </th>
             <th class="text-left px-4 py-3">
-              {{ headers[2] }}
+              {{ borrowedHeaders[2] }}
+            </th>
+            <th class="text-left px-4 py-3">
+              {{ borrowedHeaders[3] }}
             </th>
             <th class="text-left pl-4 pr-8 py-3">
-              {{ headers[3] }}
+              {{ borrowedHeaders[4] }}
             </th>
-            <th class="bg-white w-20" />
+            <th class="bg-white w-40" />
           </tr>
         </thead>
         <tbody>
@@ -92,6 +96,11 @@
             class="hover:bg-white hover:text-blue-600"
             v-for="[id, item] in borrowedItems" :key="id"
           >
+            <td class="text-left bg-white">
+              <RoundButton @click="unborrowItem(id)">
+                -
+              </RoundButton>
+            </td>
             <td class="pl-8 pr-4 py-3 border-t border-white">
               {{ item.name }}
             </td>
@@ -101,13 +110,34 @@
             <td class="px-4 py-3 border-t border-white">
               {{ item.unit }}
             </td>
-            <td class="pl-4 pr-8 py-3 border-t border-white">
+            <td class="px-4 py-3 border-t border-white">
               {{ item.state }}
             </td>
-            <td class="text-right bg-white w-20">
-              <RoundButton @click="unborrowItem(id)">
-                -
-              </RoundButton>
+            <td class="pl-4 pr-8 py-3 border-t border-white">
+              <Form>
+                <Field name="date" :rules="isRequired">
+                  
+                </Field>
+              </Form>
+            </td>
+            <td class="text-center bg-white">
+              <button
+                :class="borrowedDates.has(id) ? 'cursor-pointer' : 'cursor-not-allowed'"
+                class="
+                  font-medium text-white
+                  bg-blue-600
+                  rounded-md
+                  px-4
+                  py-2
+                  hover:text-blue-600
+                  hover:bg-white
+                  hover:outline
+                  hover:outline-2
+                  hover:outline-blue-600"
+                @click="confirmBorrowing(id)"
+              >
+                Emprunter
+              </button>
             </td>
           </tr>
         </tbody>
@@ -129,13 +159,17 @@
             <th class="text-left px-4 py-3">
               {{ unavailableHeaders[3] }}
             </th>
-            <th class="text-left pl-4 pr-8 py-3">
+            <th class="text-left px-4 py-3">
               {{ unavailableHeaders[4] }}
+            </th>
+            <th class="text-left pl-4 pr-8 py-3">
+              {{ unavailableHeaders[5] }}
             </th>
           </tr>
         </thead>
-        <tbody class="hover:bg-white hover:text-blue-600">
+        <tbody>
           <tr
+            class="hover:bg-white hover:text-blue-600"
             v-for="[id, item] in unavailableItems" :key="id"
           >
             <td class="pl-8 pr-4 py-3 border-t border-white">
@@ -150,6 +184,9 @@
             <td class="px-4 py-3 border-t border-white">
               {{ item.state }}
             </td>
+            <td class="px-4 py-3 border-t border-white">
+              {{ item.by }}
+            </td>
             <td class="pl-4 pr-8 py-3 border-t border-white">
               {{ prettyDate(item.date) }}
             </td>
@@ -161,7 +198,7 @@
 </template>
 
 <script lang="ts">
-
+import { Form, Field } from 'vee-validate'
 import RoundButton from './RoundButton.vue'
 
 interface Item {
@@ -173,6 +210,7 @@ interface Item {
 }
 
 interface UnavailableItem extends Item {
+  by: string
   date: Date
 }
 
@@ -183,23 +221,30 @@ interface UnavailableItem extends Item {
 export default {
   name: 'Inventory',
   components: {
+    Form,
+    Field,
     RoundButton
   },
   data(): {
     headers: string[],
+    borrowedHeaders: string[],
+    unavailableHeaders: string[],
     items: Map<number, Item>,
     quantities: Map<number, number>
     borrowedItems: Map<number, Item>
     borrowedQuantities: Map<number, number>,
-    unavailableHeaders: string[],
+    borrowedDates: Map<number, Date>,
     unavailableItems: Map<number, UnavailableItem>,
     unavailableQuantities: Map<number, number>,
     available: boolean,
     borrowed: boolean,
+    borrow: boolean,
     unavailable: boolean
   } {
     return {
       headers: ['Nom', 'Quantité', 'Unité', 'État'],
+      borrowedHeaders: ['Nom', 'Quantité', 'Unité', 'État', 'Emprunter le'],
+      unavailableHeaders: ['Nom', 'Quantité', 'Unité', 'État', 'Emprunté par', 'Retour'],
       items: new Map([
         [0, { id: 0, name: 'un balai plutôt assez très long', quantity: 12, unit: 'a', state: 'b'}],
         [1, { id: 1, name: 'aspirateur', quantity: 2, unit: 'a', state: 'b'}],
@@ -212,14 +257,15 @@ export default {
       ]),
       borrowedItems: new Map(),
       borrowedQuantities: new Map([[0, 0], [1, 0], [2, 0]]),
-      unavailableHeaders: ['Nom', 'Quantité', 'Unité', 'État', 'Retour'],
+      borrowedDates: new Map(),
       unavailableItems: new Map([
         [0, { id: 0,
               name: 'un balai beaucoup moins long',
               quantity: 12,
               unit: 'a',
               state: 'b',
-              date: new Date(2022, 4, 3, 14)
+              by: 'vous',
+              date: new Date(2022, 3, 1, 14)
             }]
       ]),
       // is it needed? maybe the unavailable items simply change after POST
@@ -228,6 +274,7 @@ export default {
       ]),
       available: true,
       borrowed: false,
+      borrow: false,
       unavailable: false
     }
   },
@@ -277,8 +324,13 @@ export default {
     /**
      * Moves the list of borrowed items to unavailable
      */
-    confirmBorrowing(): void {
-
+    confirmBorrowing(id: number): void {
+      const date = this.borrowedDates.get(id)
+      if (date === undefined) {
+        return
+      }
+      // POST request for item id
+      this.borrowedItems.delete(id)
     },
     showAvailable(): void {
       this.borrowed = false
@@ -295,14 +347,23 @@ export default {
       this.borrowed = false
       this.unavailable = true
     },
+    isRequired(value: unknown) {
+      if (value !== undefined && value instanceof Date) {
+        return true
+      }
+      return 'This field is required'
+    },
     prettyDate(date: Date): string {
       const zeroPad = (arg: number) => String(arg).padStart(2, '0')
-      const day = zeroPad(date.getDay())
+      const day = zeroPad(date.getDate())
       const month = zeroPad(date.getMonth() + 1)
       const hours = zeroPad(date.getHours())
 
       const now = new Date(Date.now())
-      const daysDiff = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+      const daysDiff = (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysDiff < 0) {
+        return 'Déjà rendu'
+      }
       let when: string
       if (daysDiff < 2) {
         when = date.getDay() === now.getDay() ? 'Aujourd\'hui' : 'Demain'
