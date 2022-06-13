@@ -1,13 +1,233 @@
-from datetime import datetime, date
+import base64
+import os
+from datetime import date, datetime, timedelta
+from enum import Enum
 
+from flask import current_app, url_for
 from sqlalchemy.orm import Query
 from werkzeug.security import check_password_hash, generate_password_hash
-from flask_login import UserMixin
-from flask import url_for
+
 from app import db
+from app.email import send_email
+
+
+class Role(Enum):
+    """Defines roles that allow or not certain routes"""
+
+    REUF_ADMIN = "reuf_admin"
+    REUF = "reuf"
+
+
+class PaginatedAPIMixin(object):
+    """Defines a trait for objects from the model. Aims to be inherited by objects to be returned as a jsonified paginated collection."""
+
+    @staticmethod
+    def to_collection_dict(
+        query: Query, page: int, per_page: int, endpoint: str, **kwargs
+    ) -> dict:
+        """Returns a dict representing a collection of items from the query that are to be paginated.
+
+        Args:
+            - query: the query containing for the items to be paginated. Should query a table inheriting PaginatedAPIMixin.
+            - page: the page to return for this paginated set of items
+            - per_page: the number of items per page
+            - endpoint: the current route endpoint, where the 'next' and 'previous' links will point to"""
+        resources = query.paginate(page, per_page, False)
+        data = {
+            "items": [item.to_dict() for item in resources.items],
+            "_meta": {
+                "page": page,
+                "per_page": per_page,
+                "total_pages": resources.pages,
+                "total_items": resources.total,
+            },
+            "_links": {
+                "self": url_for(endpoint, page=page, per_page=per_page, **kwargs),
+                "next": url_for(endpoint, page=page + 1, per_page=per_page, **kwargs)
+                if resources.has_next
+                else None,
+                "prev": url_for(endpoint, page=page - 1, per_page=per_page, **kwargs)
+                if resources.has_prev
+                else None,
+            },
+        }
+        return data
+
+
+class User(PaginatedAPIMixin, db.Model):
+    """Represents a user of the system. This is the actor that can borrow items.
+
+    - id: their unique id in the database (set automatically)
+    - username: their username to log in
+    - email: their email
+    - password_hash: the salted hash of their password
+    - sciper: their sciper number
+    - unit: description of their service at EPFL (student, collaborator, ...)
+    - is_reuf_admin: whether this user is an admin (logistics manager, president for example) of the real world inventory or not. Can manage items users and only be upgraded by admin
+    - is_reuf: whether this user is a reuf (member of logistics team for example) of the real world inventory. Can manage items and only be upgraded by admin
+    - token: this user's valid token
+    - token_expiration: the expiration date time for the current token
+
+    - borrowings_they_made: relationship query containing the borrowing made by this user"""
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), index=True, unique=True)
+    email = db.Column(db.String(96), index=True, unique=True)
+    password_hash = db.Column(db.String(102))
+    sciper = db.Column(db.Integer, unique=True)
+    unit = db.Column(db.String(16))
+    roles = db.Column(db.PickleType, default=[])
+    token = db.Column(db.String(32), index=True, unique=True)
+    token_expiration = db.Column(db.DateTime)
+
+    borrowings_they_made = db.relationship(
+        "Borrowing",
+        backref="borrower",
+        foreign_keys="Borrowing.user_id",
+        lazy="dynamic",
+    )
+
+    def set_password(self, password: str) -> None:
+        """Sets the password for this user"""
+        # basically hashes with random salt using PBKDF2, see https://werkzeug.palletsprojects.com/en/2.0.x/utils/#module-werkzeug.security
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        """Checks whether the given password matches the one stored in the database"""
+        return check_password_hash(self.password_hash, password)
+
+    def get_roles(self) -> list[Role]:
+        return self.roles
+
+    def from_dict(self, data: dict, new_user: bool = False) -> None:
+        """Sets attributes for a user from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation"""
+        for field in ["username", "email", "sciper", "unit"]:
+            if field in data:
+                setattr(self, field, data[field])
+        if "role" in data and not new_user:
+            send_email(
+                subject="A reuf role is being set",
+                recipients=current_app.config["ADMIN"],
+                text_body=f"Hello my reufs\nThe user {data['username']} is being changed their role status account to {data['role']}. Make sure it's desired",
+            )
+            self.role = [Role(r) for r in data["role"]]
+        if new_user and "password" in data:
+            self.set_password(data["password"])
+
+    def get_token(self, expires_in: int = 3600):
+        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 1 hour."""
+        now = datetime.utcnow()
+        # we check if the token expires in more than 60 seconds
+        if self.token and self.token_expiration > now + timedelta(seconds=60):
+            return self.token
+        self.token = base64.b64encode(os.urandom(24)).decode("utf-8")
+        self.token_expiration = now + timedelta(seconds=expires_in)
+        db.session.add(self)
+        return self.token
+
+    def revoke_token(self):
+        """Revokes the token of this user"""
+        self.token_expiration = datetime.utcnow() - timedelta(seconds=1)
+
+    @staticmethod
+    def check_token(token: str):
+        """Verifies if the given token corresponds to any user. If yes, returns the user it actually corresponds to"""
+        user = User.query.filter_by(token=token).first()
+        if user is None or user.token_expiration < datetime.utcnow():
+            return None
+        return user
+
+    def get_borrowed_items(self) -> Query:
+        """Returns a query storing the items borrowed by this user, in decreasing order of the borrowings timestamps"""
+        return (
+            db.session.query(Item)
+            .join(Borrowing, Item.id == Borrowing.item_id)
+            .filter(Borrowing.user_id == self.id)
+            .order_by(Borrowing.timestamp.desc())
+        )
+
+    def borrow(
+        self,
+        item: "Item",
+        borrowing_date: date,
+        return_date: date,
+        borrowed_quantity: int,
+        borrowing_description: str = None,
+        remarks: str = None,
+    ) -> "Borrowing":
+        """Creates a new borrowing for an item for this user. Performs checks on the inputs to have a valid borrowing. Tests should be added depending on logistical requirements"""
+        if not isinstance(item, Item):
+            raise ValueError("User can only borrow items")
+
+        if Item.query.get(item.id) != item:
+            raise ValueError("Item not in database")
+        if borrowed_quantity < 1:
+            raise ValueError("Cannot borrow less that one unit of the item")
+        if (
+            not isinstance(borrowing_date, date)
+            or not isinstance(return_date, date)
+            or borrowing_date > return_date
+            or borrowing_date < date.today()
+        ):
+            raise ValueError(
+                "Error on date: should have return date later than borrow date and borrow date not before today"
+            )
+        b = Borrowing(
+            user_id=self.id,
+            item_id=item.id,
+            borrowing_date=borrowing_date,
+            return_date=return_date,
+            borrowed_quantity=borrowed_quantity,
+            borrowing_description=borrowing_description,
+            remarks=remarks,
+        )
+        return b
+
+    def __repr__(self) -> str:
+        return "<User {} (id: {})>".format(self.username, self.id)
+
+    def to_dict(self, reuf_view: bool = False) -> dict:
+        data = {
+            "id": self.id,
+            "username": self.username,
+            "_links": {
+                "self": url_for("api.get_user", id=self.id),
+                "borrowings": url_for("api.get_borrowings_for_user", id=self.id),
+                "update": url_for("api.update_user", id=self.id),
+            },
+        }
+        if reuf_view:
+            data.update(
+                {
+                    "email": self.email,
+                    "sciper": self.sciper,
+                    "unit": self.unit,
+                    "is_reuf_admin": self.is_reuf_admin,
+                    "is_reuf": self.is_reuf,
+                }
+            )
+        return data
 
 
 class Item(db.Model):
+    """Represents an item of the database. These are to be borrowed by users eventually.
+
+    - id: their if in the database (set automatically)
+    - name: their short name
+    - image: an image of this object
+    - description: a description of this object, eventual usage etc
+    - box_name: name of this item's box in the real world inventory
+    - location: location of this item's box in the real world inventory
+    - unit: unit for measuring quantity of this item (litter, meter, 1, ...)
+    - quantity: the amount of existing unit of this item
+    - expiry_date: the expiry date of this item if any
+    - value: the value of this item (in CHF)
+    - needs_cleaning: whether this item has to be cleaned or not
+    - condition: condition of this item (good, damaged. ...)
+    - remarks: any extra remarks on this item
+
+    borrowings_it_s_in: relationship query containing the borrowing in which this item is present"""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), index=True, unique=True)
     image = db.Column(db.LargeBinary)
@@ -40,16 +260,34 @@ class Item(db.Model):
     def __repr__(self) -> str:
         return "<Item {} (id: {})>".format(self.name, self.id)
 
-    def to_dict(self, show: list = None) -> dict:
-        columns = (
-            list(filter(lambda x: x in show, self.__table__.columns.keys()))
-            if show is not None
-            else self.__table__.columns.keys()
-        )
-        ret_dict = dict()
-        for key in columns:
-            ret_dict[key] = getattr(self, key)
-        return ret_dict
+    def to_dict(self, reuf_view: bool = False) -> dict:
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "unit": self.unit,
+            "quantity": self.quantity,
+            "expiry_date": self.expiry_date,
+            "condition": self.condition,
+            "remarks": self.remarks,
+            "_links": {
+                "self": url_for("api.get_item", id=self.id),
+                "borrowings": url_for("api.get_borrowings_with_item", id=self.id),
+                "image": url_for("api.get_item_image", id=self.id),
+                "borrow": url_for("api.borrow_item", id=self.id),
+            },
+        }
+        if reuf_view:
+            data.update(
+                {
+                    "box_name": self.box_name,
+                    "location": self.location,
+                    "value": self.value,
+                    "needs_cleaning": self.needs_cleaning,
+                }
+            )
+            data["_links"].update({"update": url_for("api.edit_item", id=self.id)})
+        return data
 
 
 class Borrowing(db.Model):
@@ -68,96 +306,20 @@ class Borrowing(db.Model):
             self.borrowed_item, self.borrower, self.id
         )
 
-    def to_dict(self, show: list = None) -> dict:
-        columns = (
-            list(filter(lambda x: x in show, self.__table__.columns.keys()))
-            if show is not None
-            else self.__table__.columns.keys()
-        )
-        ret_dict = dict()
-        for key in columns:
-            ret_dict[key] = getattr(self, key)
-        return ret_dict
-
-
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), index=True, unique=True)
-    email = db.Column(db.String(96), index=True, unique=True)
-    password_hash = db.Column(db.String(102))
-    sciper = db.Column(db.Integer, unique=True)
-    unit = db.Column(db.String(16))
-
-    borrowings_they_made = db.relationship(
-        "Borrowing",
-        backref="borrower",
-        foreign_keys="Borrowing.user_id",
-        lazy="dynamic",
-    )
-
-    def get_borrwed_items(self) -> Query:
-        return (
-            db.session.query(Item)
-            .join(Borrowing, Item.id == Borrowing.item_id)
-            .filter(Borrowing.user_id == self.id)
-            .order_by(Borrowing.timestamp.desc())
-        )
-
-    def borrow(
-        self,
-        item: Item,
-        borrowing_date: date,
-        return_date: date,
-        borrowed_quantity: int,
-        borrowing_description: str = None,
-        remarks: str = None,
-    ) -> Borrowing:
-        if isinstance(item, Item):
-            if Item.query.get(item.id) != item:
-                raise ValueError("Item not in database")
-            if borrowed_quantity < 1:
-                raise ValueError("Cannot borrow less that one unit of the item")
-            if (
-                not isinstance(borrowing_date, date)
-                or not isinstance(return_date, date)
-                or borrowing_date > return_date
-                or borrowing_date < date.today()
-            ):
-                raise ValueError(
-                    "Error on date: should have return date later than borrow date and borrow date not before today"
-                )
-            b = Borrowing(
-                user_id=self.id,
-                item_id=item.id,
-                borrowing_date=borrowing_date,
-                return_date=return_date,
-                borrowed_quantity=borrowed_quantity,
-                borrowing_description=borrowing_description,
-                remarks=remarks,
-            )
-            db.session.add(b)
-            db.session.commit()
-            return b
-        else:
-            raise ValueError("User can only borrow items")
-
-    def set_password(self, password: str) -> None:
-        # basically hashes with random salt using PBKDF2, see https://werkzeug.palletsprojects.com/en/2.0.x/utils/#module-werkzeug.security
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password: str) -> bool:
-        return check_password_hash(self.password_hash, password)
-
-    def __repr__(self) -> str:
-        return "<User {} (id: {})>".format(self.username, self.id)
-
-    def to_dict(self) -> dict:
-        # TODO
+    def to_dict(self, reuf_view: bool = False) -> dict:
         data = {
             "id": self.id,
-            "username": self.username,
+            "user": self.borrower.to_dict(reuf_view),  # uses backref
+            "item": self.borrowed_item.to_dict(reuf_view),  # uses backref
+            "timestamp": self.timestamp.isoformat()
+            + "Z",  # uses timezoned date format. See https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-xxiii-application-programming-interfaces-apis
+            "borrowing_date": self.borrowing_date.isoformat() + "Z",
+            "return_date": self.return_date.isoformat() + "Z",
+            "borrowed_quantity": self.borrowed_quantity,
+            "borrowing_description": self.borrowing_description,
+            "remarks": self.remarks,
             "_links": {
-                "self": url_for("api.get_user", id=self.id),
+                "self": url_for("api.get_borrowing", id=self.id),
             },
         }
         return data
