@@ -23,6 +23,11 @@ def verify_token(token):
     return User.check_token(token) if token else None
 
 
+@token_auth.get_user_roles
+def get_user_roles(user):
+    return user.get_roles() if isinstance(user, User) else None
+
+
 @token_auth.error_handler
 def token_auth_error(status):
     return error_response(status)
