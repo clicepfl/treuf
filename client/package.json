@@ -13,6 +13,7 @@
     "tailwindcss": "^3.0.24"
   },
   "dependencies": {
+    "@vee-validate/rules": "^4.5.11",
     "vee-validate": "^4.5.11"
   }
 }
