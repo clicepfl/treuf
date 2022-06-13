@@ -31,7 +31,7 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix="/api")
 
     if not app.debug and not app.testing:
-        if app.config["MAIL_SERVER"] and app.config["MAIL_USE_TLS"]:
+        if app.config["MAIL_SERVER"] and not app.config["MAIL_USE_SSL"]:
             auth = None
             if app.config["MAIL_USERNAME"] or app.config["MAIL_PASSWORD"]:
                 auth = (app.config["MAIL_USERNAME"], app.config["MAIL_PASSWORD"])
