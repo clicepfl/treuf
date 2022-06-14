@@ -2,6 +2,7 @@ import base64
 import os
 from datetime import date, datetime, timedelta
 from enum import Enum
+from typing import Union
 
 from flask import current_app, url_for
 from sqlalchemy.orm import Query
@@ -12,7 +13,10 @@ from app.email import send_email
 
 
 class Role(Enum):
-    """Defines roles that allow or not certain routes"""
+    """Defines roles that allow or not certain routes
+    - REUF_ADMIN: whether this user is an admin (logistics manager, president for example) of the real world inventory or not. Can manage items users and only be upgraded by admin
+    - REUF: whether this user is a reuf (member of logistics team for example) of the real world inventory. Can manage items and only be upgraded by admin
+    """
 
     REUF_ADMIN = "reuf_admin"
     REUF = "reuf"
@@ -23,7 +27,12 @@ class PaginatedAPIMixin(object):
 
     @staticmethod
     def to_collection_dict(
-        query: Query, page: int, per_page: int, endpoint: str, **kwargs
+        query: Query,
+        page: int,
+        per_page: int,
+        endpoint: str,
+        reuf_view: bool = False,
+        **kwargs,
     ) -> dict:
         """Returns a dict representing a collection of items from the query that are to be paginated.
 
@@ -31,15 +40,24 @@ class PaginatedAPIMixin(object):
             - query: the query containing for the items to be paginated. Should query a table inheriting PaginatedAPIMixin.
             - page: the page to return for this paginated set of items
             - per_page: the number of items per page
+            - reuf_view: whether the to_dict called should be made for an admin view or not
             - endpoint: the current route endpoint, where the 'next' and 'previous' links will point to"""
+        if not (
+            isinstance(query, Query)
+            and isinstance(page, int)
+            and isinstance(per_page, int)
+            and isinstance(reuf_view, bool)
+            and isinstance(endpoint, str)
+        ):
+            raise TypeError("Bad arguments type")
         resources = query.paginate(page, per_page, False)
         data = {
-            "items": [item.to_dict() for item in resources.items],
+            "elements": [element.to_dict(reuf_view) for element in resources.items],
             "_meta": {
                 "page": page,
                 "per_page": per_page,
                 "total_pages": resources.pages,
-                "total_items": resources.total,
+                "total_elements": resources.total,
             },
             "_links": {
                 "self": url_for(endpoint, page=page, per_page=per_page, **kwargs),
@@ -63,8 +81,7 @@ class User(PaginatedAPIMixin, db.Model):
     - password_hash: the salted hash of their password
     - sciper: their sciper number
     - unit: description of their service at EPFL (student, collaborator, ...)
-    - is_reuf_admin: whether this user is an admin (logistics manager, president for example) of the real world inventory or not. Can manage items users and only be upgraded by admin
-    - is_reuf: whether this user is a reuf (member of logistics team for example) of the real world inventory. Can manage items and only be upgraded by admin
+    - roles: Python list with the roles held by this user. See Roles class
     - token: this user's valid token
     - token_expiration: the expiration date time for the current token
 
@@ -90,32 +107,53 @@ class User(PaginatedAPIMixin, db.Model):
     def set_password(self, password: str) -> None:
         """Sets the password for this user"""
         # basically hashes with random salt using PBKDF2, see https://werkzeug.palletsprojects.com/en/2.0.x/utils/#module-werkzeug.security
+        if not isinstance(password, str):
+            raise TypeError("Bad argument type")
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
         """Checks whether the given password matches the one stored in the database"""
-        return check_password_hash(self.password_hash, password)
+        return isinstance(password, str) and check_password_hash(
+            self.password_hash, password
+        )
 
     def get_roles(self) -> list[Role]:
+        """Returns the Roles for this user. Method required by HTTPauth for RBAC"""
         return self.roles
+
+    def has_one_of_roles(self, roles: list[Role]) -> bool:
+        """Returns whether this user one of the given roles in their roles or not"""
+        if not (isinstance(roles, list) and all([isinstance(r, Role) for r in roles])):
+            raise TypeError("Bad arguments type")
+        if self.roles:
+            for r in roles:
+                if r in self.roles:
+                    return True
+        return False
 
     def from_dict(self, data: dict, new_user: bool = False) -> None:
         """Sets attributes for a user from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation"""
+        if not (isinstance(data, dict) and isinstance(new_user, bool)):
+            raise TypeError("Bad arguments type")
         for field in ["username", "email", "sciper", "unit"]:
             if field in data:
                 setattr(self, field, data[field])
-        if "role" in data and not new_user:
+        if "roles" in data and not new_user:
+            # we assumes access control has been performed. Also we still refuse to set role at user creation
             send_email(
                 subject="A reuf role is being set",
                 recipients=current_app.config["ADMIN"],
-                text_body=f"Hello my reufs\nThe user {data['username']} is being changed their role status account to {data['role']}. Make sure it's desired",
+                text_body=f"Hello my reufs\nThe user {self.username} is being changed their role status account to {data['roles']}. Make sure it's desired",
             )
-            self.role = [Role(r) for r in data["role"]]
+            # Values should have been sanitized beforehand for not raising ValueError
+            self.roles = [Role(r) for r in data["roles"]]
         if new_user and "password" in data:
             self.set_password(data["password"])
 
-    def get_token(self, expires_in: int = 3600):
-        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 1 hour."""
+    def get_token(self, expires_in: int = 12 * 3600) -> str:
+        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 12 hours."""
+        if not isinstance(expires_in, int):
+            raise TypeError("Bad arguments type")
         now = datetime.utcnow()
         # we check if the token expires in more than 60 seconds
         if self.token and self.token_expiration > now + timedelta(seconds=60):
@@ -125,13 +163,15 @@ class User(PaginatedAPIMixin, db.Model):
         db.session.add(self)
         return self.token
 
-    def revoke_token(self):
+    def revoke_token(self) -> None:
         """Revokes the token of this user"""
         self.token_expiration = datetime.utcnow() - timedelta(seconds=1)
 
     @staticmethod
-    def check_token(token: str):
+    def check_token(token: str) -> Union["User", None]:
         """Verifies if the given token corresponds to any user. If yes, returns the user it actually corresponds to"""
+        if not isinstance(token, str):
+            raise TypeError("Bad arguments type")
         user = User.query.filter_by(token=token).first()
         if user is None or user.token_expiration < datetime.utcnow():
             return None
@@ -152,23 +192,25 @@ class User(PaginatedAPIMixin, db.Model):
         borrowing_date: date,
         return_date: date,
         borrowed_quantity: int,
-        borrowing_description: str = None,
-        remarks: str = None,
+        borrowing_description: str = "",
+        remarks: str = "",
     ) -> "Borrowing":
         """Creates a new borrowing for an item for this user. Performs checks on the inputs to have a valid borrowing. Tests should be added depending on logistical requirements"""
-        if not isinstance(item, Item):
-            raise ValueError("User can only borrow items")
+        if not (
+            isinstance(item, Item)
+            and isinstance(borrowing_date, date)
+            and isinstance(return_date, date)
+            and isinstance(borrowed_quantity, int)
+            and isinstance(borrowing_description, str)
+            and isinstance(remarks, str)
+        ):
+            raise TypeError("Bad argument type")
 
         if Item.query.get(item.id) != item:
             raise ValueError("Item not in database")
         if borrowed_quantity < 1:
             raise ValueError("Cannot borrow less that one unit of the item")
-        if (
-            not isinstance(borrowing_date, date)
-            or not isinstance(return_date, date)
-            or borrowing_date > return_date
-            or borrowing_date < date.today()
-        ):
+        if borrowing_date > return_date or borrowing_date < date.today():
             raise ValueError(
                 "Error on date: should have return date later than borrow date and borrow date not before today"
             )
@@ -202,14 +244,13 @@ class User(PaginatedAPIMixin, db.Model):
                     "email": self.email,
                     "sciper": self.sciper,
                     "unit": self.unit,
-                    "is_reuf_admin": self.is_reuf_admin,
-                    "is_reuf": self.is_reuf,
+                    "roles": [r.value for r in self.roles],
                 }
             )
         return data
 
 
-class Item(db.Model):
+class Item(PaginatedAPIMixin, db.Model):
     """Represents an item of the database. These are to be borrowed by users eventually.
 
     - id: their if in the database (set automatically)
@@ -221,6 +262,7 @@ class Item(db.Model):
     - unit: unit for measuring quantity of this item (litter, meter, 1, ...)
     - quantity: the amount of existing unit of this item
     - expiry_date: the expiry date of this item if any
+    - power: the power consumed by this item (in Watts)
     - value: the value of this item (in CHF)
     - needs_cleaning: whether this item has to be cleaned or not
     - condition: condition of this item (good, damaged. ...)
@@ -237,6 +279,7 @@ class Item(db.Model):
     unit = db.Column(db.String(16))
     quantity = db.Column(db.Integer)
     expiry_date = db.Column(db.Date)
+    power = db.Column(db.Integer)
     value = db.Column(db.Integer)
     needs_cleaning = db.Column(db.Boolean)
     condition = db.Column(db.String(16))
@@ -290,7 +333,7 @@ class Item(db.Model):
         return data
 
 
-class Borrowing(db.Model):
+class Borrowing(PaginatedAPIMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     item_id = db.Column(db.Integer, db.ForeignKey("item.id"))

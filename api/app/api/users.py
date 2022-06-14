@@ -3,18 +3,29 @@ from app import db
 from app.models import User, Role
 from app.api import bp
 from app.api.auth import token_auth
-from app.api.errors import bad_request
+from app.api.errors import bad_request, unauthorized
 
 
 @bp.route("/users/<int:id>", methods=["GET"])
-@token_auth.login_required(role=[Role.REUF_ADMIN, Role.REUF])
+@token_auth.login_required()
 def get_user(id):
-    return jsonify(User.query.get_or_404(id).to_dict())
+    """Retrieves information of the user with the given id. Users can only see their informations, only reufs can see informations of other users."""
+    current_is_reuf = token_auth.current_user().has_one_of_roles(
+        [Role.REUF, Role.REUF_ADMIN]
+    )
+    if token_auth.current_user().id != id and not current_is_reuf:
+        return unauthorized()
+    return jsonify(User.query.get_or_404(id).to_dict(current_is_reuf))
 
 
 @bp.route("/users", methods=["GET"])
 @token_auth.login_required(role=[Role.REUF_ADMIN, Role.REUF])
 def get_users():
+    """Retrieves a paginated view of all the users. Only admins are allowed for this request.
+
+    Args (in the GET request):
+        - page: the page we want to have informations for
+        - per_page: the number of elements per page. 10 by default, should be less that 100"""
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 10, type=int), 100)
     data = User.to_collection_dict(User.query, page, per_page, "api.get_users")
@@ -23,6 +34,7 @@ def get_users():
 
 @bp.route("/users", methods=["POST"])
 def create_user():
+    """Creates a new user from the content of the POSTed value"""
     data = request.get_json() or {}
     if (
         "username" not in data
@@ -53,11 +65,11 @@ def create_user():
 @bp.route("/users/<int:id>", methods=["PUT"])
 @token_auth.login_required
 def update_user(id):
-    if (
-        token_auth.current_user().id != id
-        and not token_auth.current_user().is_reuf_admin
-    ):
-        abort(403)
+    current_is_reuf_admin = token_auth.current_user().has_one_of_roles(
+        [Role.REUF_ADMIN]
+    )
+    if token_auth.current_user().id != id and not current_is_reuf_admin:
+        return unauthorized()
     user = User.query.get_or_404(id)
     data = request.get_json() or {}
     if (
@@ -78,12 +90,13 @@ def update_user(id):
         and User.query.filter_by(sciper=data["sciper"]).first()
     ):
         return bad_request("please use a different sciper number")
-    if (
-        "role" in data
-        and [Role(r) for r in data["role"]] != token_auth.get_user_roles(user)
-        and not Role.REUF_ADMIN in token_auth.get_user_roles(token_auth.current_user())
-    ):
-        return bad_request("please contact an admin for changing your admin status")
-    user.from_dict(data, new_user=False)
+    if "role" in data:
+        if not current_is_reuf_admin:
+            return bad_request("please contact an admin for changing your admin status")
+        try:
+            [Role(r) for r in data["role"]]
+        except ValueError:
+            return bad_request("the given roles do not exist")
+    user.from_dict(data, new_user="password" in data)
     db.session.commit()
     return jsonify(user.to_dict())
