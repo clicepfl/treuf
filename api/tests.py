@@ -1,16 +1,10 @@
 import json
-import time
 import unittest
 from datetime import date
-
-from dotenv import load_dotenv
 
 from app import create_app, db
 from app.models import *
 from config import Config
-
-basedir = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(os.path.join(basedir, ".env"))
 
 
 class TestConfig(Config):
