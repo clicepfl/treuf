@@ -175,6 +175,8 @@ class UserModelCase(AppCase):
         u.from_dict({"roles": ["reuf_admin"]})
         db.session.add(u)
         db.session.commit()
+        print(u.to_dict(True))
+        print(u.to_dict())
         self.assertEqual(
             u.to_dict(True),
             {
@@ -182,7 +184,7 @@ class UserModelCase(AppCase):
                 "username": "robb",
                 "_links": {
                     "self": "http://localhost.local/api/users/1",
-                    "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                    "borrowings": "http://localhost.local/api/borrowings/for_user/1",
                     "update": "http://localhost.local/api/users/1",
                     "revoke_token": "http://localhost.local/api/tokens/1",
                     "delete": "http://localhost.local/api/users/1",
@@ -200,7 +202,7 @@ class UserModelCase(AppCase):
                 "username": "robb",
                 "_links": {
                     "self": "http://localhost.local/api/users/1",
-                    "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                    "borrowings": "http://localhost.local/api/borrowings/for_user/1",
                     "update": "http://localhost.local/api/users/1",
                     "revoke_token": "http://localhost.local/api/tokens/1",
                 },
@@ -220,6 +222,10 @@ class UserModelCase(AppCase):
         v.from_dict({"roles": ["reuf", "reuf_admin"]})
         db.session.add(v)
         db.session.commit()
+        print(User.to_collection_dict(db.session.query(User), 1, 2, "api.get_users"))
+        print(
+            User.to_collection_dict(db.session.query(User), 1, 2, "api.get_users", True)
+        )
         self.assertEqual(
             User.to_collection_dict(db.session.query(User), 1, 2, "api.get_users"),
             {
@@ -229,7 +235,7 @@ class UserModelCase(AppCase):
                         "username": "robb",
                         "_links": {
                             "self": "http://localhost.local/api/users/1",
-                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                            "borrowings": "http://localhost.local/api/borrowings/for_user/1",
                             "update": "http://localhost.local/api/users/1",
                             "revoke_token": "http://localhost.local/api/tokens/1",
                         },
@@ -239,7 +245,7 @@ class UserModelCase(AppCase):
                         "username": "hugo",
                         "_links": {
                             "self": "http://localhost.local/api/users/2",
-                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/2",
+                            "borrowings": "http://localhost.local/api/borrowings/for_user/2",
                             "update": "http://localhost.local/api/users/2",
                             "revoke_token": "http://localhost.local/api/tokens/2",
                         },
@@ -269,7 +275,7 @@ class UserModelCase(AppCase):
                         "username": "robb",
                         "_links": {
                             "self": "http://localhost.local/api/users/1",
-                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                            "borrowings": "http://localhost.local/api/borrowings/for_user/1",
                             "update": "http://localhost.local/api/users/1",
                             "revoke_token": "http://localhost.local/api/tokens/1",
                             "delete": "http://localhost.local/api/users/1",
@@ -284,7 +290,7 @@ class UserModelCase(AppCase):
                         "username": "hugo",
                         "_links": {
                             "self": "http://localhost.local/api/users/2",
-                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/2",
+                            "borrowings": "http://localhost.local/api/borrowings/for_user/2",
                             "update": "http://localhost.local/api/users/2",
                             "revoke_token": "http://localhost.local/api/tokens/2",
                             "delete": "http://localhost.local/api/users/2",
