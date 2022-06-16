@@ -93,7 +93,7 @@ class User(PaginatedAPIMixin, db.Model):
     password_hash = db.Column(db.String(102))
     sciper = db.Column(db.Integer, unique=True)
     unit = db.Column(db.String(16))
-    roles = db.Column(db.PickleType, default=[])
+    roles = db.Column(db.PickleType, default=[], index=True)
     token = db.Column(db.String(32), index=True, unique=True)
     token_expiration = db.Column(db.DateTime)
 
@@ -135,7 +135,7 @@ class User(PaginatedAPIMixin, db.Model):
         return False
 
     def from_dict(self, data: dict, new_user: bool = False) -> None:
-        """Sets attributes for a user from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation"""
+        """Sets attributes for a user from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation. Expects already sanitized inputs."""
         if not (isinstance(data, dict) and isinstance(new_user, bool)):
             raise TypeError("Bad arguments type")
         for field in ["username", "email", "sciper", "unit"]:
@@ -207,7 +207,7 @@ class User(PaginatedAPIMixin, db.Model):
         borrowing_description: str = "",
         remarks: str = "",
     ) -> "Borrowing":
-        """Creates a new borrowing for an item for this user. Performs checks on the inputs to have a valid borrowing. Tests should be added depending on logistical requirements"""
+        """Creates a new borrowing for an item for this user. Performs checks on the inputs to have a valid borrowing. Tests should be added depending on logistical requirements."""
         if not (
             isinstance(item, Item)
             and isinstance(borrowing_date, date)
@@ -270,7 +270,6 @@ class Item(PaginatedAPIMixin, db.Model):
 
     - id: their if in the database (set automatically)
     - name: their short name
-    - image: an image of this object
     - description: a description of this object, eventual usage etc
     - box_name: name of this item's box in the real world inventory
     - location: location of this item's box in the real world inventory
@@ -282,12 +281,12 @@ class Item(PaginatedAPIMixin, db.Model):
     - needs_cleaning: whether this item has to be cleaned or not
     - condition: condition of this item (good, damaged. ...)
     - remarks: any extra remarks on this item
+    - access_control_list: the set of roles that are required to view this item
 
-    borrowings_it_s_in: relationship query containing the borrowing in which this item is present"""
+    - borrowings_it_s_in: relationship query containing the borrowing in which this item is present"""
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), index=True, unique=True)
-    image = db.Column(db.LargeBinary)
     description = db.Column(db.String(128))
     box_name = db.Column(db.String(16))
     location = db.Column(db.String(2))
@@ -299,6 +298,7 @@ class Item(PaginatedAPIMixin, db.Model):
     needs_cleaning = db.Column(db.Boolean)
     condition = db.Column(db.String(16))
     remarks = db.Column(db.String(128))
+    access_control_list = db.Column(db.PickleType, default=[], index=True)
 
     borrowings_it_s_in = db.relationship(
         "Borrowing",
@@ -308,12 +308,57 @@ class Item(PaginatedAPIMixin, db.Model):
     )
 
     def get_borrowers(self) -> Query:
+        """Returns a query for users that have a borrowing with this item, in decreasing order of the borrowing timestamp"""
         return (
             db.session.query(User)
             .join(Borrowing, User.id == Borrowing.user_id)
             .filter(Borrowing.user_id == self.id)
             .order_by(Borrowing.timestamp.desc())
         )
+
+    def accessible_by_roles(self, roles: list[Role]) -> bool:
+        """Returns whether this item can be accessed by a user having the given roles."""
+        if not (
+            isinstance(roles, list) and all([isinstance(r, Role) for r in roles])
+        ) or len(roles) > len(Role):
+            # checking lengths prevents having undesired long for loop
+            raise TypeError("Bad arguments type")
+        if not self.access_control_list or len(self.access_control_list) == 0:
+            # no role is required to access this item
+            return True
+        for required_role in self.access_control_list:
+            if not required_role in roles:
+                return False
+        return True
+
+    def from_dict(
+        self,
+        data: dict,
+    ) -> None:
+        """Sets attributes for an item from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation. Expects already sanitized inputs.
+
+        Dates are expected in the format '%d.%m.%y' see https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes. For example 22.01.24 is valid for 22nd of january year 2024, while 1.4.2025 is not: days and months should be 0 padded and 21st century prefix omitted."""
+        if not isinstance(data, dict):
+            raise TypeError("Bad argument type")
+        for field in [
+            "quantity",
+            "power",
+            "value",
+            "needs_cleaning",
+            "name",
+            "description",
+            "box_name",
+            "location",
+            "unit",
+            "condition",
+            "remarks",
+        ]:
+            if field in data:
+                setattr(self, field, data[field])
+        if "expiry_date" in data:
+            self.expiry_date = datetime.strptime(data["expiry_date"], "%d.%m.%y")
+        if "access_control_list" in data:
+            self.access_control_list = [Role(r) for r in data["access_control_list"]]
 
     def __repr__(self) -> str:
         return "<Item {} (id: {})>".format(self.name, self.id)
@@ -342,9 +387,17 @@ class Item(PaginatedAPIMixin, db.Model):
                     "location": self.location,
                     "value": self.value,
                     "needs_cleaning": self.needs_cleaning,
+                    "access_control_list": [r.value for r in self.access_control_list],
                 }
             )
-            data["_links"].update({"update": url_for("api.edit_item", id=self.id)})
+            data["_links"].update(
+                {
+                    "update": url_for("api.edit_item", id=self.id),
+                    "update_item": url_for("api.modify_item", id=self.id),
+                    "update_item_image": url_for("api.modify_item_image", id=self.id),
+                    "delete_item": url_for("api.delete_item", id=self.id),
+                }
+            )
         return data
 
 
