@@ -181,13 +181,11 @@ class UserModelCase(AppCase):
                 "id": 1,
                 "username": "robb",
                 "_links": {
-                    "self": "http://" + self.app.config["SERVER_NAME"] + "/api/users/1",
-                    "borrowings": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/get_borrowings_for_user/1",
-                    "update": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/users/1",
+                    "self": "http://localhost.local/api/users/1",
+                    "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                    "update": "http://localhost.local/api/users/1",
+                    "revoke_token": "http://localhost.local/api/tokens/1",
+                    "delete": "http://localhost.local/api/users/1",
                 },
                 "email": "tom.demont+example@epfl.ch",
                 "sciper": 123456,
@@ -201,13 +199,10 @@ class UserModelCase(AppCase):
                 "id": 1,
                 "username": "robb",
                 "_links": {
-                    "self": "http://" + self.app.config["SERVER_NAME"] + "/api/users/1",
-                    "borrowings": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/get_borrowings_for_user/1",
-                    "update": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/users/1",
+                    "self": "http://localhost.local/api/users/1",
+                    "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                    "update": "http://localhost.local/api/users/1",
+                    "revoke_token": "http://localhost.local/api/tokens/1",
                 },
             },
         )
@@ -226,39 +221,27 @@ class UserModelCase(AppCase):
         db.session.add(v)
         db.session.commit()
         self.assertEqual(
-            PaginatedAPIMixin.to_collection_dict(
-                db.session.query(User), 1, 2, "api.get_users"
-            ),
+            User.to_collection_dict(db.session.query(User), 1, 2, "api.get_users"),
             {
                 "elements": [
                     {
                         "id": 1,
                         "username": "robb",
                         "_links": {
-                            "self": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/1",
-                            "borrowings": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/get_borrowings_for_user/1",
-                            "update": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/1",
+                            "self": "http://localhost.local/api/users/1",
+                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                            "update": "http://localhost.local/api/users/1",
+                            "revoke_token": "http://localhost.local/api/tokens/1",
                         },
                     },
                     {
                         "id": 2,
                         "username": "hugo",
                         "_links": {
-                            "self": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/2",
-                            "borrowings": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/get_borrowings_for_user/2",
-                            "update": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/2",
+                            "self": "http://localhost.local/api/users/2",
+                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/2",
+                            "update": "http://localhost.local/api/users/2",
+                            "revoke_token": "http://localhost.local/api/tokens/2",
                         },
                     },
                 ],
@@ -269,9 +252,7 @@ class UserModelCase(AppCase):
                     "total_elements": 2,
                 },
                 "_links": {
-                    "self": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/users?page=1&per_page=2",
+                    "self": "http://localhost.local/api/users?page=1&per_page=2",
                     "next": None,
                     "prev": None,
                 },
@@ -287,15 +268,11 @@ class UserModelCase(AppCase):
                         "id": 1,
                         "username": "robb",
                         "_links": {
-                            "self": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/1",
-                            "borrowings": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/get_borrowings_for_user/1",
-                            "update": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/1",
+                            "self": "http://localhost.local/api/users/1",
+                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/1",
+                            "update": "http://localhost.local/api/users/1",
+                            "revoke_token": "http://localhost.local/api/tokens/1",
+                            "delete": "http://localhost.local/api/users/1",
                         },
                         "email": "tom.demont+example@epfl.ch",
                         "sciper": 123456,
@@ -306,15 +283,11 @@ class UserModelCase(AppCase):
                         "id": 2,
                         "username": "hugo",
                         "_links": {
-                            "self": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/2",
-                            "borrowings": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/get_borrowings_for_user/2",
-                            "update": "http://"
-                            + self.app.config["SERVER_NAME"]
-                            + "/api/users/2",
+                            "self": "http://localhost.local/api/users/2",
+                            "borrowings": "http://localhost.local/api/get_borrowings_for_user/2",
+                            "update": "http://localhost.local/api/users/2",
+                            "revoke_token": "http://localhost.local/api/tokens/2",
+                            "delete": "http://localhost.local/api/users/2",
                         },
                         "email": "tom.demont+hugo@epfl.ch",
                         "sciper": 234567,
@@ -329,9 +302,7 @@ class UserModelCase(AppCase):
                     "total_elements": 2,
                 },
                 "_links": {
-                    "self": "http://"
-                    + self.app.config["SERVER_NAME"]
-                    + "/api/users?page=1&per_page=2",
+                    "self": "http://localhost.local/api/users?page=1&per_page=2",
                     "next": None,
                     "prev": None,
                 },

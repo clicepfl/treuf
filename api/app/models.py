@@ -249,6 +249,7 @@ class User(PaginatedAPIMixin, db.Model):
                 "self": url_for("api.get_user", id=self.id),
                 "borrowings": url_for("api.get_borrowings_for_user", id=self.id),
                 "update": url_for("api.update_user", id=self.id),
+                "revoke_token": url_for("api.revoke_token", id=self.id),
             },
         }
         if reuf_view:
@@ -260,6 +261,7 @@ class User(PaginatedAPIMixin, db.Model):
                     "roles": [r.value for r in self.roles],
                 }
             )
+            data["_links"].update({"delete": url_for("api.delete_user", id=self.id)})
         return data
 
 
