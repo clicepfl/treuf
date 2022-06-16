@@ -32,3 +32,13 @@ class Config(object):
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
     ADMIN = [os.environ.get("ADMIN")]
     MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER")
+
+    """
+    ###################
+    AUTHENTICATION
+    ###################
+    """
+    TOKEN_LIFETIME = int(os.environ.get("TOKEN_LIFETIME") or 1)  # lifetime in hours
+    USER_CREATION_TOKEN = os.environ.get(
+        "USER_CREATION_TOKEN"
+    )  # token required for creating a new account
