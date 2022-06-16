@@ -13,7 +13,7 @@ from app.email import send_email
 
 
 class Role(Enum):
-    """Defines roles that allow or not certain routes
+    """Defines roles that allow or not certain routes and actions
     - REUF_ADMIN: whether this user is an admin (logistics manager, president for example) of the real world inventory or not. Can manage items users and only be upgraded by admin
     - REUF: whether this user is a reuf (member of logistics team for example) of the real world inventory. Can manage items and only be upgraded by admin
     """
@@ -123,7 +123,10 @@ class User(PaginatedAPIMixin, db.Model):
 
     def has_one_of_roles(self, roles: list[Role]) -> bool:
         """Returns whether this user one of the given roles in their roles or not"""
-        if not (isinstance(roles, list) and all([isinstance(r, Role) for r in roles])):
+        if not (
+            isinstance(roles, list) and all([isinstance(r, Role) for r in roles])
+        ) or len(roles) > len(Role):
+            # checking lengths prevents having undesired long for loop
             raise TypeError("Bad arguments type")
         if self.roles:
             for r in roles:
@@ -139,7 +142,7 @@ class User(PaginatedAPIMixin, db.Model):
             if field in data:
                 setattr(self, field, data[field])
         if "roles" in data and not new_user:
-            # we assumes access control has been performed. Also we still refuse to set role at user creation
+            # we assume access control has been performed. Also we still refuse to set role at user creation
             send_email(
                 subject="A reuf role is being set",
                 recipients=current_app.config["ADMIN"],
@@ -150,15 +153,23 @@ class User(PaginatedAPIMixin, db.Model):
         if new_user and "password" in data:
             self.set_password(data["password"])
 
-    def get_token(self, expires_in: int = 12 * 3600) -> str:
-        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 12 hours."""
+    def get_token(self, expires_in: int = 3600) -> str:
+        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 1 hour."""
         if not isinstance(expires_in, int):
             raise TypeError("Bad arguments type")
+        with current_app.app_context():
+            # we need the app context to access the configuration
+            expires_in *= current_app.config["TOKEN_LIFETIME"]
         now = datetime.utcnow()
         # we check if the token expires in more than 60 seconds
         if self.token and self.token_expiration > now + timedelta(seconds=60):
             return self.token
-        self.token = base64.b64encode(os.urandom(24)).decode("utf-8")
+        # This test is not necessary. There is a 2^192 bits token but we still make explicitly sure that there is not collision as token should uniquely identify a user
+        test_token = base64.b64encode(os.urandom(24)).decode("utf-8")
+        while User.query.filter_by(token=test_token).count() > 0:
+            test_token = base64.b64encode(os.urandom(24)).decode("utf-8")
+        # we explicitly make a string copy that way
+        self.token = "" + test_token
         self.token_expiration = now + timedelta(seconds=expires_in)
         db.session.add(self)
         return self.token
@@ -172,6 +183,7 @@ class User(PaginatedAPIMixin, db.Model):
         """Verifies if the given token corresponds to any user. If yes, returns the user it actually corresponds to"""
         if not isinstance(token, str):
             raise TypeError("Bad arguments type")
+        # we explicitly made sure in token generation that those uniquely identify a user
         user = User.query.filter_by(token=token).first()
         if user is None or user.token_expiration < datetime.utcnow():
             return None
@@ -229,6 +241,7 @@ class User(PaginatedAPIMixin, db.Model):
         return "<User {} (id: {})>".format(self.username, self.id)
 
     def to_dict(self, reuf_view: bool = False) -> dict:
+        """Converts the value to a dictionary ready to be jsonified. We should make sure to set the correct view depending on the user status with 'reuf view'."""
         data = {
             "id": self.id,
             "username": self.username,
