@@ -18,7 +18,7 @@ flask run
 Installer puis lancer les client et serveur NuxtJS
 ```
 cd client/
-npm install
+npm ci
 npm run dev
 ```
 
