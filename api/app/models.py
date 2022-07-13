@@ -14,8 +14,11 @@ from app.email import send_email
 
 class Role(Enum):
     """Defines roles that allow or not certain routes and actions
-    - REUF_ADMIN: whether this user is an admin (logistics manager, president for example) of the real world inventory or not. Can manage items users and only be upgraded by admin
-    - REUF: whether this user is a reuf (member of logistics team for example) of the real world inventory. Can manage items and only be upgraded by admin
+    - REUF_ADMIN: whether this user is an admin (logistics manager, president for
+    example) of the real world inventory or not. Can manage items users and only
+    be upgraded by admin
+    - REUF: whether this user is a reuf (member of logistics team for example) of
+    the real world inventory. Can manage items and only be upgraded by admin
     """
 
     REUF_ADMIN = "reuf_admin"
@@ -23,7 +26,8 @@ class Role(Enum):
 
 
 class PaginatedAPIMixin(object):
-    """Defines a trait for objects from the model. Aims to be inherited by objects to be returned as a jsonified paginated collection."""
+    """Defines a trait for objects from the model. Aims to be inherited by objects to
+    be returned as a jsonified paginated collection."""
 
     @staticmethod
     def to_collection_dict(
@@ -34,14 +38,18 @@ class PaginatedAPIMixin(object):
         reuf_view: bool = False,
         **kwargs,
     ) -> dict:
-        """Returns a dict representing a collection of items from the query that are to be paginated.
+        """Returns a dict representing a collection of items from the query that are to
+        be paginated.
 
         Args:
-            - query: the query containing for the items to be paginated. Should query a table inheriting PaginatedAPIMixin.
+            - query: the query containing for the items to be paginated. Should query a
+            table inheriting PaginatedAPIMixin.
             - page: the page to return for this paginated set of items
             - per_page: the number of items per page
-            - reuf_view: whether the to_dict called should be made for an admin view or not
-            - endpoint: the current route endpoint, where the 'next' and 'previous' links will point to"""
+            - reuf_view: whether the to_dict called should be made for an admin view
+            or not
+            - endpoint: the current route endpoint, where the 'next' and 'previous'
+            links will point to"""
         if not (
             isinstance(query, Query)
             and isinstance(page, int)
@@ -85,7 +93,8 @@ class User(PaginatedAPIMixin, db.Model):
     - token: this user's valid token
     - token_expiration: the expiration date time for the current token
 
-    - borrowings_they_made: relationship query containing the borrowing made by this user"""
+    - borrowings_they_made: relationship query containing the borrowing made
+    by this user"""
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
@@ -106,7 +115,8 @@ class User(PaginatedAPIMixin, db.Model):
 
     def set_password(self, password: str) -> None:
         """Sets the password for this user"""
-        # basically hashes with random salt using PBKDF2, see https://werkzeug.palletsprojects.com/en/2.0.x/utils/#module-werkzeug.security
+        # basically hashes with random salt using PBKDF2, see
+        # https://werkzeug.palletsprojects.com/en/2.0.x/utils/#module-werkzeug.security
         if not isinstance(password, str):
             raise TypeError("Bad argument type")
         self.password_hash = generate_password_hash(password)
@@ -135,18 +145,22 @@ class User(PaginatedAPIMixin, db.Model):
         return False
 
     def from_dict(self, data: dict, new_user: bool = False) -> None:
-        """Sets attributes for a user from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation. Expects already sanitized inputs."""
+        """Sets attributes for a user from a dict object. Fields to fill are explicitly
+        whitelisted to avoid undesired escalation. Expects already sanitized inputs."""
         if not (isinstance(data, dict) and isinstance(new_user, bool)):
             raise TypeError("Bad arguments type")
         for field in ["username", "email", "sciper", "unit"]:
             if field in data:
                 setattr(self, field, data[field])
         if "roles" in data and not new_user:
-            # we assume access control has been performed. Also we still refuse to set role at user creation
+            # we assume access control has been performed. Also we still refuse to set
+            # role at user creation
             send_email(
                 subject="A reuf role is being set",
                 recipients=current_app.config["ADMIN"],
-                text_body=f"Hello my reufs\nThe user {self.username} is being changed their role status account to {data['roles']}. Make sure it's desired",
+                text_body=f"Hello my reufs\nThe user {self.username} is being changed"
+                + "their role status account to {data['roles']}. "
+                + "Make sure it's desired",
             )
             # Values should have been sanitized beforehand for not raising ValueError
             self.roles = [Role(r) for r in data["roles"]]
@@ -154,7 +168,8 @@ class User(PaginatedAPIMixin, db.Model):
             self.set_password(data["password"])
 
     def get_token(self, expires_in: int = 3600) -> str:
-        """Retrieves a token for this user. If the current token does not exist or expired, sets a new one. Tokens are by default valid for 1 hour."""
+        """Retrieves a token for this user. If the current token does not exist or
+        expired, sets a new one. Tokens are by default valid for 1 hour."""
         if not isinstance(expires_in, int):
             raise TypeError("Bad arguments type")
         with current_app.app_context():
@@ -164,7 +179,9 @@ class User(PaginatedAPIMixin, db.Model):
         # we check if the token expires in more than 60 seconds
         if self.token and self.token_expiration > now + timedelta(seconds=60):
             return self.token
-        # This test is not necessary. There is a 2^192 bits token but we still make explicitly sure that there is not collision as token should uniquely identify a user
+        # This test is not necessary. There is a 2^192 bits token but we still make
+        # explicitly sure that there is not collision as token should uniquely
+        # identify a user
         test_token = base64.b64encode(os.urandom(24)).decode("utf-8")
         while User.query.filter_by(token=test_token).count() > 0:
             test_token = base64.b64encode(os.urandom(24)).decode("utf-8")
@@ -180,17 +197,20 @@ class User(PaginatedAPIMixin, db.Model):
 
     @staticmethod
     def check_token(token: str) -> Union["User", None]:
-        """Verifies if the given token corresponds to any user. If yes, returns the user it actually corresponds to"""
+        """Verifies if the given token corresponds to any user. If yes, returns the
+        user it actually corresponds to"""
         if not isinstance(token, str):
             raise TypeError("Bad arguments type")
-        # we explicitly made sure in token generation that those uniquely identify a user
+        # we explicitly made sure in token generation that those
+        # uniquely identify a user
         user = User.query.filter_by(token=token).first()
         if user is None or user.token_expiration < datetime.utcnow():
             return None
         return user
 
     def get_borrowed_items(self) -> Query:
-        """Returns a query storing the items borrowed by this user, in decreasing order of the borrowings timestamps"""
+        """Returns a query storing the items borrowed by this user, in decreasing
+        order of the borrowings timestamps"""
         return (
             db.session.query(Item)
             .join(Borrowing, Item.id == Borrowing.item_id)
@@ -207,7 +227,9 @@ class User(PaginatedAPIMixin, db.Model):
         borrowing_description: str = "",
         remarks: str = "",
     ) -> "Borrowing":
-        """Creates a new borrowing for an item for this user. Performs checks on the inputs to have a valid borrowing. Tests should be added depending on logistical requirements."""
+        """Creates a new borrowing for an item for this user. Performs checks on
+        the inputs to have a valid borrowing. Tests should be added depending on
+        logistical requirements."""
         if not (
             isinstance(item, Item)
             and isinstance(borrowing_date, date)
@@ -224,7 +246,8 @@ class User(PaginatedAPIMixin, db.Model):
             raise ValueError("Cannot borrow less that one unit of the item")
         if borrowing_date > return_date or borrowing_date < date.today():
             raise ValueError(
-                "Error on date: should have return date later than borrow date and borrow date not before today"
+                "Error on date: should have return date later than borrow date and"
+                + "borrow date not before today"
             )
         b = Borrowing(
             user_id=self.id,
@@ -241,7 +264,9 @@ class User(PaginatedAPIMixin, db.Model):
         return "<User {} (id: {})>".format(self.username, self.id)
 
     def to_dict(self, reuf_view: bool = False) -> dict:
-        """Converts the value to a dictionary ready to be jsonified. We should make sure to set the correct view depending on the user status with 'reuf view'."""
+        """Converts the value to a dictionary ready to be jsonified. We should
+        make sure to set the correct view depending on the user status
+        with 'reuf view'."""
         data = {
             "id": self.id,
             "username": self.username,
@@ -283,7 +308,8 @@ class Item(PaginatedAPIMixin, db.Model):
     - remarks: any extra remarks on this item
     - access_control_list: the set of roles that are required to view this item
 
-    - borrowings_it_s_in: relationship query containing the borrowing in which this item is present"""
+    - borrowings_it_s_in: relationship query containing the borrowing in
+    which this item is present"""
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), index=True, unique=True)
@@ -308,7 +334,8 @@ class Item(PaginatedAPIMixin, db.Model):
     )
 
     def get_borrowers(self) -> Query:
-        """Returns a query for users that have a borrowing with this item, in decreasing order of the borrowing timestamp"""
+        """Returns a query for users that have a borrowing with this item,
+        in decreasing order of the borrowing timestamp"""
         return (
             db.session.query(User)
             .join(Borrowing, User.id == Borrowing.user_id)
@@ -317,7 +344,8 @@ class Item(PaginatedAPIMixin, db.Model):
         )
 
     def accessible_by_roles(self, roles: list[Role]) -> bool:
-        """Returns whether this item can be accessed by a user having the given roles."""
+        """Returns whether this item can be accessed by a user having
+        the given roles."""
         if not (
             isinstance(roles, list) and all([isinstance(r, Role) for r in roles])
         ) or len(roles) > len(Role):
@@ -327,7 +355,7 @@ class Item(PaginatedAPIMixin, db.Model):
             # no role is required to access this item
             return True
         for required_role in self.access_control_list:
-            if not required_role in roles:
+            if required_role not in roles:
                 return False
         return True
 
@@ -335,9 +363,14 @@ class Item(PaginatedAPIMixin, db.Model):
         self,
         data: dict,
     ) -> None:
-        """Sets attributes for an item from a dict object. Fields to fill are explicitly whitelisted to avoid undesired escalation. Expects already sanitized inputs.
+        """Sets attributes for an item from a dict object. Fields to fill are
+        explicitly whitelisted to avoid undesired escalation. Expects already
+        sanitized inputs.
 
-        Dates are expected in the format '%d.%m.%y' see https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes. For example 22.01.24 is valid for 22nd of january year 2024, while 1.4.2025 is not: days and months should be 0 padded and 21st century prefix omitted."""
+        Dates are expected in the format '%d.%m.%y' see
+        https://docs.python.org/3/library/datetime.html.
+        For example 22.01.24 is valid for 22nd of january year 2024, while 1.4.2025
+        is not: days and months should be 0 padded and 21st century prefix omitted."""
         if not isinstance(data, dict):
             raise TypeError("Bad argument type")
         for field in [
@@ -423,7 +456,8 @@ class Borrowing(PaginatedAPIMixin, db.Model):
             "user": self.borrower.to_dict(reuf_view),  # uses backref
             "item": self.borrowed_item.to_dict(reuf_view),  # uses backref
             "timestamp": self.timestamp.isoformat()
-            + "Z",  # uses timezoned date format. See https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-xxiii-application-programming-interfaces-apis
+            + "Z",  # uses timezoned date format. See https://blog.miguelgrinberg.com
+            # /post/the-flask-mega-tutorial-part-xxiii-application-programming-interfaces-apis
             "borrowing_date": self.borrowing_date.isoformat() + "Z",
             "return_date": self.return_date.isoformat() + "Z",
             "borrowed_quantity": self.borrowed_quantity,

@@ -24,11 +24,12 @@ def send_email(
     """Sends a mail to the designated recipients. By default, sends asynchronously the mail.
 
     Args:
-        subject: mail subjects
-        recipients: list of email of recipients
-        text_body: the body content of the sent mail
-        sender: defines a sender if this one is different from app.config['MAIL_DEFAULT_SENDER']
-        attachments: file to be sent as attachment in mail"""
+        - subject: mail subjects
+        - recipients: list of email of recipients
+        - text_body: the body content of the sent mail
+        - sender: defines a sender if this one is different from
+        app.config['MAIL_DEFAULT_SENDER']
+        - attachments: file to be sent as attachment in mail"""
     msg = Message(subject, sender=sender, recipients=recipients)
     msg.body = text_body
     if attachments:

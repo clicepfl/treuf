@@ -9,7 +9,8 @@ from app.api.errors import bad_request, unauthorized
 @bp.route("/users/<int:id>", methods=["GET"])
 @token_auth.login_required()
 def get_user(id):
-    """Retrieves information of the user with the given id. Users can only see their informations, only reufs can see informations of other users."""
+    """Retrieves information of the user with the given id. Users can only see
+    their information, only reufs can see informations of other users."""
     current_is_reuf = token_auth.current_user().has_one_of_roles(
         [Role.REUF, Role.REUF_ADMIN]
     )
@@ -21,11 +22,13 @@ def get_user(id):
 @bp.route("/users", methods=["GET"])
 @token_auth.login_required(role=[Role.REUF_ADMIN, Role.REUF])
 def get_users():
-    """Retrieves a paginated view of all the users. Only admins are allowed for this request.
+    """Retrieves a paginated view of all the users. Only admins are allowed for
+    this request.
 
     Args (in the GET request):
         - page: the page we want to have informations for
-        - per_page: the number of elements per page. 10 by default, should be less that 100"""
+        - per_page: the number of elements per page. 10 by default, should be
+        less that 100"""
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 10, type=int), 100)
     data = User.to_collection_dict(User.query, page, per_page, "api.get_users")
@@ -34,7 +37,10 @@ def get_users():
 
 @bp.route("/users", methods=["POST"])
 def create_user():
-    """Creates a new user from the content of the POSTed value. Should contain the minimum required attributes to create a user and the correct token 'user_creation_token'. This one will be matched with the app.config[USER_CREATION_TOKEN] one."""
+    """Creates a new user from the content of the POSTed value. Should contain the
+    minimum required attributes to create a user and the correct token
+    'user_creation_token'. This one will be matched with the
+    app.config[USER_CREATION_TOKEN] one."""
     data = request.get_json() or {}
     with current_app.app_context():
         if current_app.config["USER_CREATION_TOKEN"] and (
@@ -50,7 +56,8 @@ def create_user():
     ):
         return bad_request("must include username, email, password and sciper fields")
     if "role" in data:
-        # we do not allow direct creation of admin/staff users. Users can only be upgraded via update by an admin user.
+        # we do not allow direct creation of admin/staff users. Users can only be
+        # upgraded via update by an admin user.
         return bad_request("must contact an admin to create an admin user")
     if User.query.filter_by(username=data["username"]).first():
         return bad_request("please use a different username")
@@ -74,7 +81,9 @@ def update_user(id):
     """Modifies a user. Only user themselves or admins can do this.
     - We perform checks that we will not break the database uniqueness constraints.
     - We check the roles corresponds to values of the expected enum.
-    - Users can modify their password if the field 'password' is set. This will be considered as a new user creation and therefore, we cannot change both a role and a password at the same time.
+    - Users can modify their password if the field 'password' is set. This will be
+    considered as a new user creation and therefore, we cannot change both a role and
+    a password at the same time.
     - Only admins can modify the role of other users."""
     current_is_reuf_admin = token_auth.current_user().has_one_of_roles(
         [Role.REUF_ADMIN]
@@ -123,7 +132,8 @@ def update_user(id):
 #     data = request.get_json() or {}
 #     if "new_user_creation_token" not in data:
 #         return bad_request(
-#             "you should but the value of the new token in key 'new_user_creation_token"
+#             "you should but the value of the new token in key"
+#             + "'new_user_creation_token"
 #         )
 #     with current_app.app_context():
 #         current_app.config["USER_CREATION_TOKEN"] = (
@@ -137,7 +147,8 @@ def update_user(id):
 @bp.route("/users/<int:id>", methods=["DELETE"])
 @token_auth.login_required(role=[Role.REUF_ADMIN])
 def delete_user(id):
-    """Allows an admin to permanently delete a user. Note that references to this user in other tables will therefore be set to None."""
+    """Allows an admin to permanently delete a user. Note that references to this user
+    in other tables will therefore be set to None."""
     user = User.query.get_or_404(id)
     if user.has_one_of_roles([Role.REUF_ADMIN]):
         return bad_request("you should downgrade a user before deleting them")

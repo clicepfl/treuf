@@ -3,7 +3,10 @@ import unittest
 from datetime import date
 
 from app import create_app, db
-from app.models import *
+from app.models import User, Role, Borrowing, Item
+from datetime import datetime, timedelta
+import base64
+import os
 from config import Config
 
 
@@ -113,7 +116,8 @@ class UserModelCase(AppCase):
             new_user=True,
         )
         t = u.get_token()
-        # checks the default expiration time is indeed in 3600 seconds (with an accepted 2s of delta)
+        # checks the default expiration time is indeed in 3600 seconds (with an
+        # accepted 2s of delta)
         self.assertAlmostEqual(
             u.token_expiration.timestamp(),
             (datetime.utcnow() + timedelta(seconds=3600)).timestamp(),
@@ -235,7 +239,8 @@ class UserModelCase(AppCase):
                         "username": "robb",
                         "_links": {
                             "self": "http://localhost.local/api/users/1",
-                            "borrowings": "http://localhost.local/api/borrowings/for_user/1",
+                            "borrowings": "http://localhost.local/api/borrowings/"
+                            + "for_user/1",
                             "update": "http://localhost.local/api/users/1",
                             "revoke_token": "http://localhost.local/api/tokens/1",
                         },
@@ -245,7 +250,8 @@ class UserModelCase(AppCase):
                         "username": "hugo",
                         "_links": {
                             "self": "http://localhost.local/api/users/2",
-                            "borrowings": "http://localhost.local/api/borrowings/for_user/2",
+                            "borrowings": "http://localhost.local/api/borrowings/"
+                            + "for_user/2",
                             "update": "http://localhost.local/api/users/2",
                             "revoke_token": "http://localhost.local/api/tokens/2",
                         },
@@ -275,7 +281,8 @@ class UserModelCase(AppCase):
                         "username": "robb",
                         "_links": {
                             "self": "http://localhost.local/api/users/1",
-                            "borrowings": "http://localhost.local/api/borrowings/for_user/1",
+                            "borrowings": "http://localhost.local/api/borrowings/"
+                            + "for_user/1",
                             "update": "http://localhost.local/api/users/1",
                             "revoke_token": "http://localhost.local/api/tokens/1",
                             "delete": "http://localhost.local/api/users/1",
@@ -290,7 +297,8 @@ class UserModelCase(AppCase):
                         "username": "hugo",
                         "_links": {
                             "self": "http://localhost.local/api/users/2",
-                            "borrowings": "http://localhost.local/api/borrowings/for_user/2",
+                            "borrowings": "http://localhost.local/api/borrowings/"
+                            + "for_user/2",
                             "update": "http://localhost.local/api/users/2",
                             "revoke_token": "http://localhost.local/api/tokens/2",
                             "delete": "http://localhost.local/api/users/2",

@@ -14,7 +14,8 @@ mail = Mail()
 
 
 def create_app(config_class=Config):
-    """Factory pattern for app instance construction. Constructs the app from a Config objects and registers the blueprint modules."""
+    """Factory pattern for app instance construction. Constructs the app from a Config
+    objects and registers the blueprint modules."""
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -30,11 +31,12 @@ def create_app(config_class=Config):
 
     app.register_blueprint(error_bp)
 
-    """Handles application logs by mail and in files when deployed."""
+    # Handles application logs by mail and in files when deployed.
     if not app.debug and not app.testing:
         # we cannot yet have mail logs with a SMTP over SSL connection
         # https://docs.python.org/3/library/logging.handlers.html#logging.handlers.SMTPHandler
-        # There exists code to circumvent this https://github.com/dycw/ssl-smtp-handler but not widely adopted
+        # There exists code to circumvent this https://github.com/dycw/ssl-smtp-handler
+        # but not widely adopted
         if app.config["MAIL_SERVER"] and not app.config["MAIL_USE_SSL"]:
             auth = None
             if app.config["MAIL_USERNAME"] or app.config["MAIL_PASSWORD"]:
